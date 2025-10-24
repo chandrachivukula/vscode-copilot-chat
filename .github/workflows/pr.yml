@@ -1,20 +1,20 @@
 name: PR Checks
 
-on:
+on: # Define when this workflow runs (push and pull_request events
   push:
     branches:
       - 'gh-readonly-queue/main/*'
   pull_request:
     branches:
       - main
-      - 'release/*'
+      - 'release/*' # Set minimal permissions for security (read-only access
 
 permissions:
   contents: read
   pull-requests: read
 
-jobs:
-  check-test-cache:
+jobs: # Define individual jobs that will run in this workflow
+  check-test-cache: # Job to verify that cached build/test artifacts are valid
     name: Check test cache
     runs-on: [ self-hosted, 1ES.Pool=1es-vscode-ubuntu-22.04-x64 ]
     steps:
@@ -30,7 +30,7 @@ jobs:
       - name: Restore build cache
         uses: actions/cache/restore@v4
         id: build-cache
-        with:
+        with: # Restore previously saved build cache to speed up workflow
           key: build_cache-${{ hashFiles('build/.cachesalt', 'package-lock.json') }}
           path: .build/build_cache
 
@@ -39,21 +39,21 @@ jobs:
         run: tar -xzf .build/build_cache/cache.tgz
 
       - name: Install dependencies
-        if: steps.build-cache.outputs.cache-hit != 'true'
+        if: steps.build-cache.outputs.cache-hit != 'true' # Only extract cache if it was successfully restored
         run: npm ci
 
       - name: Ensure no duplicate cache keys
         run: npx tsx test/base/cache-cli check
 
       - name: Ensure no untrusted cache changes
-        run: npx tsx build/pr-check-cache-files.ts
+        run: npx tsx build/pr-check-cache-files.ts # Custom script that ensures PRs don’t modify untrusted cache files
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
 
-  check-telemetry:
+  check-telemetry: # Job to validate telemetry events for schema consistency
     name: Check telemetry events
     runs-on: [ self-hosted, 1ES.Pool=1es-vscode-ubuntu-22.04-x64 ]
     steps:
@@ -69,7 +69,7 @@ jobs:
       - name: Validate telemetry events
         run: npx --package=@vscode/telemetry-extractor --yes vscode-telemetry-extractor -s . > /dev/null
 
-  linux-tests:
+  linux-tests: # Main Linux test job that runs build, lint, and all test suites
     name: Test (Linux)
     runs-on: [ self-hosted, 1ES.Pool=1es-vscode-ubuntu-22.04-x64 ]
     steps:
@@ -139,7 +139,7 @@ jobs:
       - name: Run extension tests using VS Code
         run: xvfb-run -a npm run test:extension
 
-      - name: Archive simulation output
+      - name: Archive simulation output # Compress and save simulation test results for later review
         if: always()
         run: |
           set -e
@@ -153,7 +153,7 @@ jobs:
           name: simulation-output-linux-${{ github.run_attempt }}
           path: .simulation-archive/simulation.tgz
 
-  windows-tests:
+  windows-tests: # Equivalent Windows test job ensuring cross-platform consistency
     name: Test (Windows)
     runs-on: [ self-hosted, 1ES.Pool=1es-vscode-windows-2022-x64 ]
     steps:
